@@ -93,14 +93,14 @@ The operational workflow consists of **9 sequential Prefect tasks**. These cover
 
 ```mermaid
 flowchart TD
-    A["Step 0: Preparation\n─────────────────\nData loading, cleaning,\nID generation, persistence\n(Python, DuckDB)"] --> B["Step 1: Quality Checks\n─────────────────\nSchema and coverage validation\non cleaned data\n(Great Expectations)"]
-    B --> C["Step 2: dbt Transformations\n─────────────────\nStaging + mart models,\nconstraint tests\n(dbt, DuckDB)"]
-    C --> D["Step 3: Heuristic Scoring\n─────────────────\nBehavioral features,\nrating deviation,\nreview patterns\n(Python, DuckDB)"]
-    D --> E["Step 4: Temporal Analysis\n─────────────────\nBurst detection,\nco-bursting patterns,\ntime-window analysis\n(Python, DuckDB)"]
-    E --> F["Step 5: Network Analysis\n─────────────────\nReviewer–restaurant graph,\ncommunity structure,\nco-reviewer signals\n(NetworkX)"]
-    F --> G["Step 6: Semantic Analysis\n─────────────────\nEmbedding similarity,\nsentiment mismatch,\nkeyword-based fact checks\n(sentence-transformers, GPU)"]
-    G --> H["Step 7: Final Scoring\n─────────────────\nWeighted composite score,\npercentile thresholding\n(Python, DuckDB)"]
-    H --> I["Step 8: Storage Upload\n─────────────────\nUpload raw, processed,\nand output artifacts to MinIO\n(boto3, MinIO)"]
+    A["Step 0: Preparation<br/>Data loading, cleaning,<br/>ID generation, persistence<br/>(Python, DuckDB)"] --> B["Step 1: Quality Checks<br/>Schema and coverage validation<br/>on cleaned data<br/>(Great Expectations)"]
+    B --> C["Step 2: dbt Transformations<br/>Staging + mart models,<br/>constraint tests<br/>(dbt, DuckDB)"]
+    C --> D["Step 3: Heuristic Scoring<br/>Behavioral features,<br/>rating deviation,<br/>review patterns<br/>(Python, DuckDB)"]
+    D --> E["Step 4: Temporal Analysis<br/>Burst detection,<br/>co-bursting patterns,<br/>time-window analysis<br/>(Python, DuckDB)"]
+    E --> F["Step 5: Network Analysis<br/>Reviewer-restaurant graph,<br/>community structure,<br/>co-reviewer signals<br/>(NetworkX)"]
+    F --> G["Step 6: Semantic Analysis<br/>Embedding similarity,<br/>sentiment mismatch,<br/>keyword-based fact checks<br/>(sentence-transformers, GPU)"]
+    G --> H["Step 7: Final Scoring<br/>Weighted composite score,<br/>percentile thresholding<br/>(Python, DuckDB)"]
+    H --> I["Step 8: Storage Upload<br/>Upload raw, processed,<br/>and output artifacts to MinIO<br/>(boto3, MinIO)"]
 
     style A fill:#4A90D9,stroke:#2C5F8A,color:#fff
     style B fill:#7B68EE,stroke:#5A4CB5,color:#fff
