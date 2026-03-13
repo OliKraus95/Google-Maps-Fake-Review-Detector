@@ -21,6 +21,7 @@ This module handles End-to-End data preparation:
 
 import csv
 import logging
+import os
 from pathlib import Path
 from typing import Union
 
@@ -30,6 +31,32 @@ import pandas as pd
 from scripts import config
 
 logger = logging.getLogger(__name__)
+
+SENSITIVE_EXAMPLE_COLUMNS = {
+    "reviewer_name",
+    "reviewer_user_id",
+    "reviewer_avatar_url",
+    "reviewer_profile_url",
+    "review_text",
+    "owner_response_text",
+}
+
+
+def _sanitize_example_value(column_name: str, example: object) -> object:
+    """Mask sensitive sample values in quality reports for safe sharing."""
+    if pd.isna(example):
+        return example
+
+    anonymize_enabled = os.environ.get("ANONYMIZE_EXPORTS", "true").lower() in {
+        "1", "true", "yes", "on"
+    }
+    if not anonymize_enabled:
+        return example
+
+    if column_name in SENSITIVE_EXAMPLE_COLUMNS:
+        return "[REDACTED]"
+
+    return example
 
 # ============================================================================
 # Column Mapping: German → English (snake_case)
@@ -475,6 +502,7 @@ def _generate_quality_report(df: pd.DataFrame) -> None:
         fill_rate = 1 - (df[col].isna().sum() / len(df))
         null_count = df[col].isna().sum()
         example = df[col].dropna().iloc[0] if null_count < len(df) else None
+        example = _sanitize_example_value(col, example)
         
         quality_rows.append({
             "column_name": col,
