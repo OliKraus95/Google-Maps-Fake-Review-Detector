@@ -40,7 +40,7 @@ This is a **solo hobby project** built to practice and demonstrate skills across
 
 The review data was collected using a **custom-built scraper** (separate repository) based on **Playwright**, which reverse-engineers Google Maps' internal API endpoint. The scraper mimics natural user scrolling behavior to avoid bot detection and extracts rich metadata per review — including reviewer profile information, timestamps, star ratings, sub-ratings (food, service, atmosphere), review text, and owner responses.
 
-<!-- TODO: Link to scraper repository -->
+Scraper repository: [Google Maps Review Scraper](https://github.com/OliKraus95/Google-Maps-Review-Scraper)
 
 ---
 
@@ -127,6 +127,10 @@ flowchart TD
 
 All scripts share a centralized configuration via `scripts/config.py` (no hardcoded paths or credentials).
 
+### Prefect Flow Run (Screenshot)
+
+![Prefect Flow Run](assets/plots/Prefect%20Flow-Run.png)
+
 ---
 
 ## Tech Stack
@@ -170,8 +174,10 @@ The final suspicion score is a weighted composite of 12 individual signals, each
 ---
 
 ## Key Findings
-TODO
-The full exploratory analysis is available in [`notebooks/Analysis.ipynb`](notebooks/Analysis.ipynb). Below is a summary of the key results.
+
+The full exploratory analysis is available in [`notebooks/Analysis.ipynb`](notebooks/Analysis.ipynb).
+For direct repository viewing, use: [Analysis Notebook (GitHub)](https://github.com/OliKraus95/Google-Maps-Fake-Review-Detector/blob/main/notebooks/Analysis.ipynb).
+Below is a summary of the key results.
 
 ### Dataset Overview
 
@@ -288,8 +294,8 @@ LIMIT 10;
 
 ```bash
 # Clone the repository
-git clone https://github.com/<your-username>/fake-review-detection.git
-cd fake-review-detection
+git clone https://github.com/OliKraus95/Google-Maps-Fake-Review-Detector.git
+cd Google-Maps-Fake-Review-Detector
 
 # Copy and configure environment variables
 cp .env.example .env
