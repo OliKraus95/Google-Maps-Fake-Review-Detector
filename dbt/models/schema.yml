@@ -1,0 +1,205 @@
+version: 2
+
+# Data sources
+sources:
+  - name: raw
+    description: "Raw data from Phase 1: Data Preparation (preparation.py)"
+    schema: main
+    tables:
+      - name: raw_reviews
+        description: |
+          Complete denormalized review table from Phase 1.
+          Loaded via scripts.preparation.run() → DuckDB.
+          All columns in English snake_case (mapped from German in Phase 1).
+          Includes derived features: edit_delta_hours, review_detail_level, etc.
+        columns:
+          - name: review_id
+            description: "Unique identifier for each review (primary key)"
+            tests:
+              - unique
+              - not_null
+          - name: place_url
+            description: "Google Maps URL / restaurant identifier"
+            tests:
+              - not_null
+          - name: reviewer_user_id
+            description: "Google Maps user ID of reviewer"
+            tests:
+              - not_null
+          - name: rating_stars
+            description: "Review rating (1-5 stars)"
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [1, 2, 3, 4, 5]
+          - name: timestamp_created_iso
+            description: "Review creation timestamp (UTC ISO8601)"
+            tests:
+              - not_null
+          - name: review_text
+            description: "Review text content"
+          - name: review_language
+            description: "Detected language of review (de, en, tr, etc.)"
+
+# Staging models (views)
+models:
+  - name: stg_reviews
+    description: |
+      Staging view for reviews.
+      1:1 extraction from raw_reviews with derived date columns.
+      Includes all features created in Phase 1:
+      - review_date: Denormalized from timestamp_created_iso
+      - review_text_length: Computed text length
+      - review_detail_level: 0=minimal, 1=text-only, 2=detailed ratings
+      - Behavioral flags: has_review_text, was_edited, has_owner_response, etc.
+    columns:
+      - name: review_id
+        description: "Unique identifier for each review (PK)"
+        tests:
+          - unique
+          - not_null
+      - name: place_url
+        description: "Restaurant identifier (FK to dim_restaurants)"
+        tests:
+          - not_null
+      - name: reviewer_user_id
+        description: "Reviewer identifier (FK to dim_reviewers)"
+        tests:
+          - not_null
+      - name: rating_stars
+        description: "Review rating (1-5)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+      - name: review_date
+        description: "Date of review (derived from timestamp_created_iso)"
+      - name: review_text_length
+        description: "Character count of review text"
+      - name: review_detail_level
+        description: "Depth of review: 0=stars-only, 1=text, 2=detailed-ratings"
+      - name: was_edited
+        description: "Boolean: review was edited after creation"
+      - name: edit_delta_hours
+        description: "Hours between creation and edit (null if not edited)"
+
+  - name: stg_reviewers
+    description: |
+      Staging view for reviewers.
+      Dedupled from raw_reviews (one row per reviewer_user_id).
+      Keeps latest profile snapshot based on crawl_timestamp.
+    columns:
+      - name: reviewer_user_id
+        description: "Unique identifier for reviewer (PK)"
+        tests:
+          - unique
+          - not_null
+      - name: reviewer_name
+        description: "Display name of reviewer"
+      - name: reviewer_review_count
+        description: "Total reviews posted by reviewer at snapshot time"
+      - name: reviewer_photo_count
+        description: "Total photos uploaded by reviewer at snapshot time"
+      - name: reviewer_photo_review_ratio
+        description: "Ratio of photos to reviews (engagement metric)"
+      - name: reviewer_is_local_guide
+        description: "Boolean: reviewer is Google Local Guide"
+
+  - name: stg_restaurants
+    description: |
+      Staging view for restaurants.
+      Deduplit from raw_reviews (one row per place_url).
+      Keeps latest profile snapshot based on crawl_timestamp.
+    columns:
+      - name: place_url
+        description: "Google Maps URL / restaurant identifier (PK)"
+        tests:
+          - unique
+          - not_null
+      - name: place_name
+        description: "Restaurant name"
+      - name: place_overall_rating
+        description: "Average rating (1.0-5.0)"
+      - name: place_total_reviews
+        description: "Total number of reviews at snapshot time"
+
+# Mart models (tables)
+  - name: dim_reviewers
+    description: |
+      Dimension table for reviewers.
+      Materialized as TABLE (not view) for query performance.
+      Used as reviewer dimension in fact_reviews.
+    columns:
+      - name: reviewer_user_id
+        description: "Unique identifier for reviewer (PK)"
+        tests:
+          - unique
+          - not_null
+      - name: reviewer_name
+        description: "Display name"
+      - name: reviewer_review_count
+        description: "Total reviews at snapshot"
+      - name: reviewer_photo_review_ratio
+        description: "Engagement metric: photos per review"
+
+  - name: dim_restaurants
+    description: |
+      Dimension table for restaurants.
+      Materialized as TABLE for query performance.
+      Used as restaurant dimension in fact_reviews.
+    columns:
+      - name: restaurant_id
+        description: "Unique identifier (= place_url) (PK)"
+        tests:
+          - unique
+          - not_null
+      - name: place_name
+        description: "Restaurant name"
+      - name: place_overall_rating
+        description: "Average rating (1.0-5.0)"
+
+  - name: fact_reviews
+    description: |
+      Central fact table for review analysis.
+      Materialized as TABLE for query performance.
+      Grain: One row per review
+      Measures: rating_stars, sub_ratings, text_length, detail_level
+      Dimensions: restaurant (restaurant_id), reviewer (reviewer_user_id)
+      Time: review_date, review_created_at, review_edited_at
+    columns:
+      - name: review_id
+        description: "Unique review identifier (PK)"
+        tests:
+          - unique
+          - not_null
+      - name: restaurant_id
+        description: "Restaurant identifier (FK to dim_restaurants)"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_restaurants')
+              field: restaurant_id
+      - name: reviewer_user_id
+        description: "Reviewer identifier (FK to dim_reviewers)"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_reviewers')
+              field: reviewer_user_id
+      - name: rating_stars
+        description: "Review rating (1-5)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+      - name: review_detail_level
+        description: "Review depth: 0=minimal, 1=text, 2=detailed"
+        tests:
+          - accepted_values:
+              values: [0, 1, 2]
+      - name: review_date
+        description: "Date dimension for aggregations"
+        tests:
+          - not_null
+      - name: review_text_length
+        description: "Character count of review text"

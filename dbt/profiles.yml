@@ -1,0 +1,13 @@
+fake_review_detection:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: '/app/data/processed/reviews.duckdb'
+      threads: 4
+      schema: main
+    prod:
+      type: duckdb
+      path: '/app/data/processed/reviews.duckdb'
+      threads: 8
+      schema: main

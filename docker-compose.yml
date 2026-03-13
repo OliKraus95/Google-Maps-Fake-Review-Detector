@@ -1,0 +1,171 @@
+services:
+  # MinIO - S3-compatible object storage
+  minio:
+    image: minio/minio:latest
+    container_name: fake-review-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"     # API port
+      - "9001:9001"     # Console port
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - fake-review-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+
+  # MinIO initialization - creates bucket
+  minio-init:
+    image: minio/mc:latest
+    container_name: fake-review-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    networks:
+      - fake-review-network
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO to be ready...';
+      sleep 5;
+      /usr/bin/mc alias set myminio http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD;
+      /usr/bin/mc mb myminio/fake-reviews --ignore-existing;
+      echo 'Bucket fake-reviews created or already exists';
+      exit 0;
+      "
+    restart: "no"
+
+  # Main pipeline service (run manually)
+  pipeline:
+    image: fake-review-detection:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fake-review-pipeline
+    profiles:
+      - pipeline
+    restart: "no"
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PREFECT_API_URL=http://prefect-server:4200/api
+      - HF_TOKEN=${HF_TOKEN:-}
+    volumes:
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+      - ./dbt:/app/dbt
+      - ./scripts:/app/scripts
+      - ./flows:/app/flows
+      - ./expectations:/app/expectations
+      - huggingface_cache:/root/.cache/huggingface
+    networks:
+      - fake-review-network
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 16G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: python flows/pipeline.py
+
+  # Jupyter Notebooks for testing
+  # Start with "docker compose up jupyter" and open localhost:8888
+  # Access at http://localhost:8888 (no password required)
+  jupyter:
+    image: fake-review-detection:latest
+    depends_on:
+      - prefect-server
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8888:8888"
+    environment:
+      - PREFECT_API_URL=http://prefect-server:4200/api
+      - HF_TOKEN=${HF_TOKEN:-}
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN:?JUPYTER_TOKEN is required}
+    volumes:
+      - ./data:/app/data
+      - ./notebooks:/app/notebooks
+      - ./scripts:/app/scripts
+      - ./dbt:/app/dbt
+      - huggingface_cache:/root/.cache/huggingface
+      - ./outputs:/app/outputs
+    networks:
+      - fake-review-network
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 12G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: jupyter notebook --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='${JUPYTER_TOKEN}' --NotebookApp.password=''
+
+
+
+
+  # Prefect Server (optional - for workflow orchestration UI)
+  prefect-server:
+    image: prefecthq/prefect:2-python3.11
+    container_name: fake-review-prefect
+    restart: unless-stopped
+    ports:
+      - "4200:4200"
+    environment:
+      - PREFECT_SERVER_API_HOST=0.0.0.0
+      - PREFECT_API_DATABASE_CONNECTION_URL=sqlite+aiosqlite:////root/.prefect/prefect.db
+    volumes:
+      - prefect-data:/root/.prefect
+    networks:
+      - fake-review-network
+    command: prefect server start
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+
+  
+
+volumes:
+  minio-data:
+    driver: local
+  prefect-data:
+    driver: local
+  huggingface_cache:
+    driver: local
+
+networks:
+  fake-review-network:
+    driver: bridge

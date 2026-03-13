@@ -1,0 +1,39 @@
+name: 'fake_review_detection'
+version: '1.0.0'
+config-version: 2
+
+# Profile configuration
+profile: 'fake_review_detection'
+
+# Model paths
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Model configurations
+models:
+  fake_review_detection:
+    # Staging models - materialized as views
+    staging:
+      +materialized: view
+      +schema: staging
+    
+    # Marts models - materialized as tables
+    marts:
+      +materialized: table
+      +schema: marts
+
+# Set timezone
+on-run-start:
+  - "{{ log('Starting dbt run...', info=True) }}"
+
+on-run-end:
+  - "{{ log('dbt run completed!', info=True) }}"
