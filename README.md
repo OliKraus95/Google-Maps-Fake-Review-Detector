@@ -22,6 +22,7 @@
 - [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
 - [Limitations](#limitations)
+- [License](#license)
 - [References](#references)
 
 ---
@@ -382,6 +383,12 @@ This project is a portfolio demonstration and comes with important caveats:
 6. **Google's Internal Sorting:** Despite scraping with "newest first" ordering, Google may apply internal filtering or reranking that is not visible to the scraper, potentially biasing which reviews are collected.
 
 7. **Human Baseline:** According to the literature, humans can only detect fake reviews by reading them at roughly **55–60% accuracy** — barely above chance. People tend to trust detailed or emotional texts as authentic, which is precisely what professional spammers exploit (Ott et al., 2012). Any system that consistently exceeds this baseline is already an improvement.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See [`LICENSE`](LICENSE) for details.
 
 ---
 
